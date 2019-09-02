@@ -1,44 +1,11 @@
+
 import numpy as np
 import scipy.stats as sts
-from scipy.optimize import linprog
-from math import sqrt
+from math import sqrt, floor
 
-# numbers of X and Y categories
-ncatX = 2
-ncatY = 2
-
-# numbers of men and women
-nmen = 400
-nwomen = 400
-
-# surplus Phi matrix
-Phi11, Phi12, Phi21, Phi22 = 0.5, 1.0, 1.0, 1.6
-Phi_mat = np.array([[Phi11, Phi12], [Phi21, Phi22]])
-
-typeIEV = sts.gumbel_r()
-
-
-# simulate one man's draws
-def new_man():
-    eps_vals = typeIEV.rvs(size=ncatY + 1)
-    return eps_vals
-
-
-# simulate one woman's draws
-def new_woman():
-    eta_vals = typeIEV.rvs(size=ncatX + 1)
-    return eta_vals
-
-
-# simulate a population
-def new_popu():
-    # types of men and women
-    x = np.random.randint(1, ncatX + 1, nmen)
-    y = np.random.randint(1, ncatY + 1, nwomen)
-    # their draws
-    eps_vals = typeIEV.rvs(size=nmen * (ncatY + 1)).reshape((nmen, ncatY + 1))
-    eta_vals = typeIEV.rvs(size=nwomen * (ncatX + 1)).reshape((nwomen, ncatX + 1))
-    return x, y, eps_vals, eta_vals
+"""
+solve for equilibrium in a Choo and Siow market given systematic surplus and margins
+"""
 
 
 def ipfp_solve(Phi, nx, my, eps_diff=1e-6):
@@ -72,21 +39,53 @@ def ipfp_solve(Phi, nx, my, eps_diff=1e-6):
     # print(f"Margin error on y: {np.max(np.abs(marg_err_y))}")
     return muxy, mux0, mu0y, marg_err_x, marg_err_y
 
-x, y, eps_vals, eta_vals = new_popu()
 
-nx = np.empty(ncatX)
-my = np.empty(ncatY)
-for ix in range(ncatX):
-    nx[ix] = np.sum(x == ix + 1)
-for iy in range(ncatY):
-    my[iy] = np.sum(y == iy + 1)
+if __name__ == "__main__":
 
-muxy, mux0, mu0y, marg_err_x, marg_err_y = ipfp_solve(Phi_mat, nx, my)
-Phi_est = np.log(muxy * muxy / np.outer(mux0, mu0y))
+    # numbers of X and Y categories
+    ncatX = 2
+    ncatY = 2
 
-print("After IPFP: Phi_est == Phi_mat?")
-print(Phi_mat)
-print(Phi_est)
-print("margin errors:")
-print(marg_err_x)
-print(marg_err_y)
+    # numbers of men and women
+    nmen = 100
+    nwomen = 100
+
+    # surplus Phi matrix
+    Phi11, Phi12, Phi21, Phi22 = 0.5, 1.0, 1.0, 1.6
+    Phi_mat = np.array([[Phi11, Phi12], [Phi21, Phi22]])
+
+    typeIEV = sts.gumbel_r()
+
+    # types of men and women
+    x = np.empty(nmen)
+    nmen_cat = floor(nmen/ncatX)
+    for ix in range(ncatX):
+        x[ix*nmen_cat:(ix+1)*nmen_cat] = ix + 1
+    # just in case
+    x[ncatX*nmen_cat:] = ncatX
+    y = np.empty(nwomen)
+    nwomen_cat = floor(nwomen/ncatY)
+    for iy in range(ncatY):
+        y[iy*nwomen_cat:(iy+1)*nwomen_cat] = iy + 1
+    # just in case
+    y[ncatY*nwomen_cat:] = ncatY
+    # compute the margins
+    nx = np.empty(ncatX)
+    my = np.empty(ncatY)
+    for ix in range(ncatX):
+        nx[ix] = np.sum(x == ix + 1)
+    for iy in range(ncatY):
+        my[iy] = np.sum(y == iy + 1)
+
+    muxy, mux0, mu0y, marg_err_x, marg_err_y = ipfp_solve(Phi_mat, nx, my)
+    Phi_est = np.log(muxy * muxy / np.outer(mux0, mu0y))
+
+    print("After IPFP: Phi_est == Phi_mat?")
+    print("   here is Phi_mat:")
+    print(Phi_mat)
+    print("   and here is Phi_est:")
+    print(Phi_est)
+    print("margin errors for men:")
+    print(marg_err_x)
+    print("margin errors for women:")
+    print(marg_err_y)
