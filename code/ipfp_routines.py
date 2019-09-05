@@ -89,3 +89,4 @@ if __name__ == "__main__":
     print(marg_err_x)
     print("margin errors for women:")
     print(marg_err_y)
+
