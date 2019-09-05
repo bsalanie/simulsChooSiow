@@ -45,24 +45,29 @@ def get_eq_marriage(surplus_mat):
 
     marriage_prob.solve()
 
-    print("Status:", pulp.LpStatus[marriage_prob.status])
+    status_string = pulp.LpStatus[marriage_prob.status]
 
-    # create output DataFrame
-    output = []
-    for i, j in x:
-        var_output = {
-            'm': i,
-            'w': j,
-            'Probability': x[(i, j)].varValue,
-        }
-        output.append(var_output)
+    if status_string == "Optimal":
 
-    output_df = pd.DataFrame.from_records(
-        output).sort_values(['m', 'w'])
+        # create output DataFrame
+        output = []
+        for i, j in x:
+            var_output = {
+                'm': i,
+                'w': j,
+                'Probability': x[(i, j)].varValue,
+            }
+            output.append(var_output)
 
-    output_df.set_index(['m', 'w'], inplace=True)
+        output_df = pd.DataFrame.from_records(
+            output).sort_values(['m', 'w'])
 
-    return marriage_prob, output_df
+        output_df.set_index(['m', 'w'], inplace=True)
+
+        return marriage_prob, status_string, output_df
+    
+    else:
+        return marriage_prob, status_string, None
 
 
 def print_solution(prob):
@@ -110,19 +115,21 @@ if __name__ == "__main__":
     surplus_mat[:, 0] = 0.0
 
     with Timer() as t:
-        marriage_eq, marriage_probas = get_eq_marriage(surplus_mat)
+        marriage_eq, status_string, marriage_probas = get_eq_marriage(surplus_mat)
 
     print(
         f"Computing the equilibrium with {nmen} men and {nwomen} women  took {t.elapsed:.3f} seconds")
-    print_solution(marriage_eq)
-
-    ncatX = 2
-    ncatY = 3
-    x = np.random.randint(1, ncatX + 1, size=nmen)
-    y = np.random.randint(1, ncatY + 1, size=nwomen)
-    print(f"\n the types of men are:\n {x}")
-    print(f"\n the types of women are:\n {y}")
-    muxy, mux0, mu0y = marriage_patterns(marriage_probas, x, y)
-    print(f"\nmuxy:\n {muxy}")
-    print(f"\nmux0:\n {mux0}")
-    print(f"\nmu0y:\n {mu0y}")
+    print(f"Status was: {status_string}")
+    
+    if status_string == "Optimal":
+        print_solution(marriage_eq)
+        ncatX = 2
+        ncatY = 3
+        x = np.random.randint(1, ncatX + 1, size=nmen)
+        y = np.random.randint(1, ncatY + 1, size=nwomen)
+        print(f"\n the types of men are:\n {x}")
+        print(f"\n the types of women are:\n {y}")
+        muxy, mux0, mu0y = marriage_patterns(marriage_probas, x, y)
+        print(f"\nmuxy:\n {muxy}")
+        print(f"\nmux0:\n {mux0}")
+        print(f"\nmu0y:\n {mu0y}")

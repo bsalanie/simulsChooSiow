@@ -4,6 +4,7 @@
 # In[1]:
 
 
+from concurrent import futures
 from ipfp_routines import ipfp_solve
 import numpy as np
 import scipy.stats as sts
@@ -54,42 +55,29 @@ Phi_rand = CS_random_surplus_direct(Phi_sys, x, y, typeIEV)
 # In[4]:
 
 
-with Timer() as t:
-    marriage_eq, marriage_probas = get_eq_marriage(Phi_rand)
-
-print(
-    f"Computing the equilibrium with {nmen} men and {nwomen} women  took {t.elapsed:.3f} seconds")
-
-muxy, mux0, mu0y = marriage_patterns(marriage_probas, x, y)
-
-print(f"\nmuxy:\n {muxy}")
-print(f"\nmux0:\n {mux0}")
-print(f"\nmu0y:\n {mu0y}")
-
-Phi_est = np.log(muxy * muxy / np.outer(mux0, mu0y))
-
-print(f"\n\nPhi_est: {Phi_est}")
-
 
 # In[5]:
 
 
-def estimate_Phi():
+def estimate_Phi(irun):
     # random surplus
     Phi_rand = CS_random_surplus_direct(Phi_sys, x, y, typeIEV)
-    _, marriage_probas = get_eq_marriage(Phi_rand)
-    muxy, mux0, mu0y = marriage_patterns(marriage_probas, x, y)
-    Phi_est = np.log(muxy * muxy / np.outer(mux0, mu0y))
-    return Phi_est
+    _, status_string, marriage_probas = get_eq_marriage(Phi_rand)
+    print(f"Sample {irun}: {status_string}")
+    if status_string == "Optimal":
+        muxy, mux0, mu0y = marriage_patterns(marriage_probas, x, y)
+        Phi_est = np.log(muxy * muxy / np.outer(mux0, mu0y))
+        return status_string, Phi_est
+    else:
+        return status_string, None
+
+
 
 
 def Phi_comp(Phi):
     return Phi[0, 0] + Phi[1, 1] - Phi[0, 1] - Phi[1, 0]
 
 
-# In[6]:
-
-Phi_comp(estimate_Phi())
 
 
 # In[ ]:
@@ -112,16 +100,31 @@ x = equal_cats(nmen, ncatX)
 y = equal_cats(nwomen, ncatY)
 
 
-nsimuls = 50
+nsimuls = 200
 Phi_est_sim = np.zeros((nsimuls, ncatX, ncatY))
 Phi_comp_true = Phi_comp(Phi_sys)
 print(f"\nTrue complementarity = {Phi_comp_true}")
 Phi_comp_sim = np.zeros(nsimuls)
+  
+estim_job = futures.ThreadPoolExecutor(max_workers=2)
+results = estim_job.map(estimate_Phi, range(nsimuls))
+real_results = list(results)
+
+bad_list =[]
+
 for isimul in range(nsimuls):
-    Phi_est = estimate_Phi()
-    Phi_est_sim[isimul, :, :] = Phi_est
-    Phi_comp_sim[isimul] = Phi_comp(Phi_est)
-    print(f"Sample {isimul}: estimated complementarity {Phi_comp_sim[isimul]}")
+    status_string, Phi_est = real_results[isimul]
+    if status_string == "Optimal":
+        Phi_est_sim[isimul, :, :] = Phi_est
+        Phi_comp_sim[isimul] = Phi_comp(Phi_est)
+        print(f"Sample {isimul}: estimated complementarity {Phi_comp_sim[isimul]}")
+    else: 
+        bad_list.append(isimul)
+        Phi_est_sim[isimul, :, :] = np.zeros((ncatX, ncatY))
+        Phi_comp_sim[isimul] = 0.0
+
+
+print(f"Bad simulations: {bad_list}")
 
 np.save("Phi_est_sim.npy", Phi_est_sim)
 np.save("Phi_comp_sim.npy", Phi_comp_sim)

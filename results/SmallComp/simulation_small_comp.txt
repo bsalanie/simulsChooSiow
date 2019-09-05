@@ -1,0 +1,3 @@
+The mean and standard error of the estimated complementarity (true value 0.10000000000000009)  are
+0.10251164409885152 and 0.32074598684477734
+The Linh standard error is 0.4578549013484801.
